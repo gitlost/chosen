@@ -1,7 +1,3 @@
-###
-Chosen source: generate output using 'cake build'
-Copyright (c) 2011 by Harvest
-###
 root = this
 $ = jQuery
 
@@ -142,7 +138,6 @@ class Chosen extends AbstractChosen
     this.results_hide()
 
     @container.removeClass "chzn-container-active"
-    this.winnow_results_clear()
     this.clear_backstroke()
 
     this.show_search_field_default()
@@ -198,13 +193,9 @@ class Chosen extends AbstractChosen
     @search_results.html content
     @parsing = false
 
-
   result_add_group: (group) ->
-    if not group.disabled
-      group.dom_id = @container_id + "_g_" + group.array_index
-      '<li id="' + group.dom_id + '" class="group-result">' + $("<div />").text(group.label).html() + '</li>'
-    else
-      ""
+    group.dom_id = @container_id + "_g_" + group.array_index
+    '<li id="' + group.dom_id + '" class="group-result">' + $("<div />").text(group.label).html() + '</li>'
 
   result_do_highlight: (el) ->
     if el.length
@@ -230,9 +221,7 @@ class Chosen extends AbstractChosen
     @result_highlight = null
 
   results_show: ->
-    if @result_single_selected?
-      this.result_do_highlight @result_single_selected
-    else if @is_multiple and @max_selected_options <= this.choices_count()
+    if @is_multiple and @max_selected_options <= this.choices_count()
       @form_field_jq.trigger("liszt:maxselected", {chosen: this})
       return false
 
@@ -247,10 +236,11 @@ class Chosen extends AbstractChosen
     this.winnow_results()
 
   results_hide: ->
-    this.result_clear_highlight()
+    if @results_showing
+      this.result_clear_highlight()
 
-    @container.removeClass "chzn-with-drop"
-    @form_field_jq.trigger("liszt:hiding_dropdown", {chosen: this})
+      @container.removeClass "chzn-with-drop"
+      @form_field_jq.trigger("liszt:hiding_dropdown", {chosen: this})
 
     @results_showing = false
 
@@ -344,7 +334,7 @@ class Chosen extends AbstractChosen
         return false
 
       if @is_multiple
-        this.result_deactivate high
+        high.removeClass("active-result")
       else
         @search_results.find(".result-selected").removeClass "result-selected"
         @result_single_selected = high
@@ -373,11 +363,16 @@ class Chosen extends AbstractChosen
       @current_selectedIndex = @form_field.selectedIndex
       this.search_field_scale()
 
-  result_activate: (el) ->
-    el.addClass("active-result")
+  result_activate: (el, option) ->
+    if option.disabled
+      el.addClass("disabled-result")
+    else if @is_multiple and option.selected
+      el.addClass("result-selected")
+    else
+      el.addClass("active-result")
 
   result_deactivate: (el) ->
-    el.removeClass("active-result")
+    el.removeClass("active-result result-selected disabled-result")
 
   result_deselect: (pos) ->
     result_data = @results_data[pos]
@@ -412,36 +407,23 @@ class Chosen extends AbstractChosen
     results = 0
 
     searchText = if @search_field.val() is @default_text then "" else $('<div/>').text($.trim(@search_field.val())).html()
-    regexAnchor = if @search_contains then "" else "^ *"
-    regex = new RegExp(regexAnchor + searchText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), 'i')
-    zregex = new RegExp(searchText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), 'i')
-
-    regexHtml = /(<[^>]+>)/g
-    subHtml = (match) -> new Array(match.length + 1).join(" ")
+    if searchText.length
+        regexAnchor = if @search_contains then "" else if @enable_split_word_search then "\\b" else "^ *"
+        regex = new RegExp(regexAnchor + searchText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), 'i')
+        zregex = new RegExp(searchText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), 'i')
+        regexHtml = /(<[^>]+>)/g
+        subHtml = (match) -> new Array(match.length + 1).join(" ")
 
     for option in @results_data
-      if not option.disabled and not option.empty
+      if not option.empty
         if option.group
           $('#' + option.dom_id).css('display', 'none')
-        else if not (@is_multiple and option.selected)
-          found = false
+        else
           result_id = option.dom_id
           result = $("#" + result_id)
 
-          subbedHtml = option.html.replace(regexHtml, subHtml);
-          if regex.test subbedHtml
-            found = true
+          if not searchText.length or regex.test subbedHtml = option.html.replace(regexHtml, subHtml)
             results += 1
-          else if @enable_split_word_search and (option.html.indexOf(" ") >= 0 or option.html.indexOf("[") == 0)
-            #TODO: replace this substitution of /\[\]/ with a list of characters to skip.
-            parts = subbedHtml.replace(/\[|\]/g, "").split(" ")
-            if parts.length
-              for part in parts
-                if regex.test part
-                  found = true
-                  results += 1
-
-          if found
             if searchText.length
               startpos = subbedHtml.search zregex
               text = option.html.substr(0, startpos + searchText.length) + '</em>' + option.html.substr(startpos + searchText.length)
@@ -450,7 +432,7 @@ class Chosen extends AbstractChosen
               text = option.html
 
             result.html(text)
-            this.result_activate result
+            this.result_activate result, option
 
             $("#" + @results_data[option.group_array_index].dom_id).css('display', 'list-item') if option.group_array_index?
           else
@@ -461,17 +443,6 @@ class Chosen extends AbstractChosen
       this.no_results searchText
     else
       this.winnow_results_set_highlight()
-
-  winnow_results_clear: ->
-    @search_field.val ""
-    lis = @search_results.find("li")
-
-    for li in lis
-      li = $(li)
-      if li.hasClass "group-result"
-        li.css('display', 'auto')
-      else if not @is_multiple or not li.hasClass "result-selected"
-        this.result_activate li
 
   winnow_results_set_highlight: ->
     if not @result_highlight
@@ -491,13 +462,11 @@ class Chosen extends AbstractChosen
     @search_results.find(".no-results").remove()
 
   keydown_arrow: ->
-    if not @result_highlight
-      first_active = @search_results.find("li.active-result").first()
-      this.result_do_highlight $(first_active) if first_active
-    else if @results_showing
+    if @results_showing and @result_highlight
       next_sib = @result_highlight.nextAll("li.active-result").first()
       this.result_do_highlight next_sib if next_sib
-    this.results_show() if not @results_showing
+    else
+      this.results_show()
 
   keyup_arrow: ->
     if not @results_showing and not @is_multiple
