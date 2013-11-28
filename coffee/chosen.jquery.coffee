@@ -176,7 +176,7 @@ class Chosen extends AbstractChosen
 
     @results_data = SelectParser.select_to_array @form_field
     if @results_data_callback and typeof @results_data_callback == "function"
-      @results_data = @results_data_callback(@results_data, root)
+      @results_data = @results_data_callback(@results_data)
 
     if @is_multiple
       @search_choices.find("li.search-choice").remove()
@@ -365,7 +365,7 @@ class Chosen extends AbstractChosen
       this.single_deselect_control_build()
       @selected_item.removeClass("chosen-default")
 
-    @selected_item.find("span").text(text)
+    @selected_item.find("span").html(text)
 
   result_deselect: (pos) ->
     result_data = @results_data[pos]

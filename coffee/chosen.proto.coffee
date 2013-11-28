@@ -171,7 +171,7 @@ class @Chosen extends AbstractChosen
 
     @results_data = SelectParser.select_to_array @form_field
     if @results_data_callback and typeof @results_data_callback == "function"
-      @results_data = @results_data_callback(@results_data, root)
+      @results_data = @results_data_callback(@results_data)
 
     if @is_multiple
       @search_choices.select("li.search-choice").invoke("remove")
